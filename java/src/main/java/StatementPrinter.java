@@ -1,50 +1,55 @@
 import java.text.NumberFormat;
 import java.util.Locale;
 import java.util.Map;
+import java.util.List;
 
 public class StatementPrinter {
 
+    private  String result = "";
+    private Map<String, Play> plays = null;
+
     public String print(Invoice invoice, Map<String, Play> plays) {
-        var totalAmount = 0;
-        var volumeCredits = 0;
-        var result = String.format("Statement for %s\n", invoice.customer);
 
-        NumberFormat frmt = NumberFormat.getCurrencyInstance(Locale.US);
+        this.plays = plays;
 
-        for (var perf : invoice.performances) {
-            var play = plays.get(perf.playID);
-            var thisAmount = 0;
+        StatementData statementData = new StatementData(invoice, plays);
+        renderInvoiceStatement(String.format("Statement for %s\n", invoice.customer));
+        updateAmountInBill(statementData);
+        updateVolumeCreditInBill(statementData);
 
-            switch (play.type) {
-                case "tragedy":
-                    thisAmount = 40000;
-                    if (perf.audience > 30) {
-                        thisAmount += 1000 * (perf.audience - 30);
-                    }
-                    break;
-                case "comedy":
-                    thisAmount = 30000;
-                    if (perf.audience > 20) {
-                        thisAmount += 10000 + 500 * (perf.audience - 20);
-                    }
-                    thisAmount += 300 * perf.audience;
-                    break;
-                default:
-                    throw new Error("unknown type: ${play.type}");
-            }
+        return result;
+    }
 
-            // add volume credits
-            volumeCredits += Math.max(perf.audience - 30, 0);
-            // add extra credit for every ten comedy attendees
-            if ("comedy".equals(play.type)) volumeCredits += Math.floor(perf.audience / 5);
+    private void renderInvoiceStatement(String stringToAppend){
+
+        result  += stringToAppend;
+    }
+
+    private void updateAmountInBill(StatementData statementData){
+
+        int totalAmount = 0;
+        for (var perf : statementData.getPerformances()) {
+            var play = statementData.getPlays().get(perf.playID);
+
+            //calculte the amount
+            int thisAmount = statementData.getEachPerformanceAmount(perf);
 
             // print line for this order
-            result += String.format("  %s: %s (%s seats)\n", play.name, frmt.format(thisAmount / 100), perf.audience);
+            renderInvoiceStatement(String.format("  %s: %s (%s seats)\n", play.name, formatAmount(thisAmount), perf.audience));
             totalAmount += thisAmount;
         }
-        result += String.format("Amount owed is %s\n", frmt.format(totalAmount / 100));
-        result += String.format("You earned %s credits\n", volumeCredits);
-        return result;
+        renderInvoiceStatement(String.format("Amount owed is %s\n",  formatAmount(totalAmount)));
+    }
+
+    private void updateVolumeCreditInBill(StatementData statementData){
+
+        renderInvoiceStatement(String.format("You earned %s credits\n", statementData.getVolumeCredits()));
+    }
+
+    private String formatAmount (int amount){
+
+        NumberFormat frmt = NumberFormat.getCurrencyInstance(Locale.US);
+        return frmt.format(amount / 100);
     }
 
 }
